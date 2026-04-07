@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+html,
+body {
+  font-family: var(--font-pixel), system-ui, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      #5fb56f 0 32px,
+      #56a865 32px 64px
+    );
+  color: #1a1a1a;
+  image-rendering: pixelated;
+}
+
+.farm-title {
+  text-shadow: 3px 3px 0 #000;
+  color: #fff;
+}
+
+.nes-container.is-rounded {
+  background: #fffceb !important;
+}
+
+pre.recipe {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+}

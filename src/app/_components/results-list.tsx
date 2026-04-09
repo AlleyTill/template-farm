@@ -80,7 +80,11 @@ export function ResultsList() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      className="flex flex-col gap-3"
+      aria-live="polite"
+      aria-label="Search results"
+    >
       {hits.map((hit) => (
         <HitCard key={hit.id} hit={hit} />
       ))}

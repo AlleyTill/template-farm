@@ -203,6 +203,8 @@ export default function SpinWheel({
 
         {message && (
           <div
+            role="status"
+            aria-live="polite"
             className="nes-container is-rounded"
             style={{ backgroundColor: 'var(--farm-wheat)', color: 'var(--farm-ink)' }}
           >
@@ -211,6 +213,8 @@ export default function SpinWheel({
         )}
         {error && (
           <div
+            role="alert"
+            aria-live="assertive"
             className="nes-container is-rounded"
             style={{ backgroundColor: 'var(--farm-ember)', color: '#fff' }}
           >

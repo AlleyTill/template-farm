@@ -1,4 +1,4 @@
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { logger } from "./logger";
@@ -41,13 +41,13 @@ export async function generateRecipe(
   description: string,
 ): Promise<RecipeOutput> {
   try {
-    const { experimental_output } = await generateText({
+    const { object } = await generateObject({
       model: anthropic("claude-haiku-4-5"),
-      experimental_output: Output.object({ schema: recipeSchema }),
+      schema: recipeSchema,
       system: SYSTEM_PROMPT,
       prompt: `Project description:\n${description}\n\nReturn a single template recipe.`,
     });
-    return experimental_output;
+    return object;
   } catch (err) {
     logger.error("ai.generateRecipe failed", { err: describeError(err) });
     throw new Error("AI generation failed");

@@ -170,23 +170,40 @@ export async function searchHarvests(
   const db = getDb();
   // websearch_to_tsquery is safe for raw user input.
   // Rank = ts_rank_cd * 1.0 + log(1 + like_count) * 0.2 + 1/(1+days_old)
+  // Computes tsvector inline from name/stack/description. Slower than a
+  // generated column + GIN index, but portable and avoids Postgres
+  // immutability issues with generated columns over array expressions.
   const result = await db.execute(sql`
+    WITH scored AS (
+      SELECT
+        id,
+        name,
+        description,
+        stack,
+        like_count      AS "likeCount",
+        created_at      AS "createdAt",
+        (
+          setweight(to_tsvector('english', coalesce(name, '')), 'A') ||
+          setweight(to_tsvector('english', array_to_string(coalesce(stack, ARRAY[]::text[]), ' ')), 'B') ||
+          setweight(to_tsvector('english', coalesce(description, '')), 'C')
+        ) AS tsv
+      FROM harvests
+      WHERE visibility = 'public'
+    )
     SELECT
       id,
       name,
       description,
       stack,
-      like_count      AS "likeCount",
-      created_at      AS "createdAt",
+      "likeCount",
+      "createdAt",
       (
-        ts_rank_cd(search_tsv, q) * 1.0
-        + ln(1 + like_count) * 0.2
-        + (1.0 / (1.0 + EXTRACT(EPOCH FROM (now() - created_at)) / 86400.0))
+        ts_rank_cd(tsv, q) * 1.0
+        + ln(1 + "likeCount") * 0.2
+        + (1.0 / (1.0 + EXTRACT(EPOCH FROM (now() - "createdAt")) / 86400.0))
       ) AS rank
-    FROM harvests,
-         websearch_to_tsquery('english', ${query}) AS q
-    WHERE visibility = 'public'
-      AND search_tsv @@ q
+    FROM scored, websearch_to_tsquery('english', ${query}) AS q
+    WHERE tsv @@ q
     ORDER BY rank DESC
     LIMIT ${limit}
   `);

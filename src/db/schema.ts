@@ -11,6 +11,7 @@ import {
   index,
   uniqueIndex,
   pgEnum,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const tierEnum = pgEnum("tier", ["free", "paid"]);
@@ -46,6 +47,7 @@ export const users = pgTable(
     referralCode: text("referral_code").notNull(),
     referredBy: uuid("referred_by"),
     spinTokens: integer("spin_tokens").notNull().default(0),
+    companionName: text("companion_name"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -238,6 +240,56 @@ export const aiBudget = pgTable("ai_budget", {
   max: integer("max").notNull().default(200),
 });
 
+/**
+ * Sprouts — a user's in-progress app idea, grown through Socratic stages.
+ */
+export const sprouts = pgTable(
+  "sprouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    currentStage: text("current_stage").notNull().default("seed"),
+    intent: text("intent").notNull().default("ambiguous"),
+    visibility: text("visibility").notNull().default("private"),
+    finalPlan: jsonb("final_plan"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("sprouts_user_id_idx").on(t.userId),
+    index("sprouts_visibility_idx").on(t.visibility),
+  ],
+);
+
+/**
+ * Sprout stages — one row per farmhand turn. Ordered by createdAt.
+ */
+export const sproutStages = pgTable(
+  "sprout_stages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sproutId: uuid("sprout_id")
+      .notNull()
+      .references(() => sprouts.id, { onDelete: "cascade" }),
+    stage: text("stage").notNull(),
+    question: text("question").notNull(),
+    userAnswer: text("user_answer"),
+    farmhandReply: text("farmhand_reply"),
+    mood: text("mood").notNull().default("default"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("sprout_stages_sprout_id_idx").on(t.sproutId)],
+);
+
 // Row type exports (inferred from the schema)
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -250,6 +302,10 @@ export type Like = typeof likes.$inferSelect;
 export type Referral = typeof referrals.$inferSelect;
 export type SpinResult = typeof spinResults.$inferSelect;
 export type AiBudget = typeof aiBudget.$inferSelect;
+export type Sprout = typeof sprouts.$inferSelect;
+export type NewSprout = typeof sprouts.$inferInsert;
+export type SproutStage = typeof sproutStages.$inferSelect;
+export type NewSproutStage = typeof sproutStages.$inferInsert;
 
 // Re-export sql for callers that need it alongside the schema
 export { sql };

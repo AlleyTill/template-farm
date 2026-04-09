@@ -7,6 +7,7 @@ import QuotaCard from "./_components/quota-card";
 import PassphraseCard from "./_components/passphrase-card";
 import MyHarvestsList from "./_components/my-harvests-list";
 import SpinWheel from "./_components/spin-wheel";
+import RenameCard from "./_components/rename-card";
 import ReferralBanner from "@/app/_components/referral-banner";
 
 type State =
@@ -98,6 +99,15 @@ export default function MePage() {
               Welcome back, {state.user.displayName}
             </p>
           </header>
+
+          <RenameCard
+            user={state.user}
+            onRenamed={(user) =>
+              setState((prev) =>
+                prev.status === "ok" ? { ...prev, user } : prev,
+              )
+            }
+          />
 
           <QuotaCard quota={state.quota} />
 

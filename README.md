@@ -1,41 +1,51 @@
 # 🌱 Template Farm 🌾
 
-> Sow a description, harvest a project template.
+> Sow a description, harvest a project template. A cozy, Stardew-Valley-vibed
+> community library of starter templates for developers.
 
-Template Farm is a cozy, Stardew Valley–vibed web app for developers. Describe
-the project you're trying to build, and the farm hands you back a ready-to-go
-template: a stack, the commands to scaffold it, and the steps to build and run
-it on your machine.
+Template Farm is a community-first template library. Search thousands of
+community-grown project scaffolds by plain description. If nothing fits, toggle
+on the farmhand (Claude Haiku 4.5) to generate a new one — AI results are
+published back to the public library by default, so every prompt grows the
+farm.
 
-> ⚠️ **Spoiler warning:** under the cute pixel UI, the farm is currently powered
-> by Anthropic's Claude Haiku 4.5. You bring the API key, the farm does the rest.
-> A future version will lean on a community-seeded template library so AI calls
-> become a fallback rather than the default.
+No email, no signup form. Your identity is a passphrase you write down once.
 
 ---
 
-## What you need
+## Features
 
-- **Node.js 20+** (Node 24 LTS recommended)
-- **npm** (or pnpm/yarn — examples below use npm)
-- An **Anthropic API key** — see below
+- 🔎 **Full-text search** over community harvests (Postgres `tsvector` + GIN)
+- 🤖 **AI generation** (Claude Haiku 4.5) with honest warning banner
+- 🌾 **Dual-layer quotas**: 3 AI prompts / month per user + global 200/day farm pool
+- 🔑 **Passphrase identity** — farm-themed phrases, bcrypt-hashed, recoverable on any device
+- 💬 **Community content**: comments (one-level threaded), code snippets, link refs
+- ❤️ **Likes & forks** on any public harvest
+- 🎡 **Spin wheel** for bonus prompts, earned via referrals
+- 👥 **Referral codes** — award your friend a spin when they post their first harvest
+- 👤 **Public profiles** at `/u/[displayName]`
+- 🎨 **NES.css pixel UI** with a cozy farm palette
 
-## 1. Get an Anthropic API key
+## Stack
 
-1. Go to <https://console.anthropic.com/>
-2. Sign in or create an account
-3. Navigate to **Settings → API Keys**
-4. Click **Create Key**, give it a name (e.g. `template-farm-dev`), and copy the
-   value. It starts with `sk-ant-...`
-5. Treat this key like a password. Don't commit it. Don't paste it into chat
-   logs. If you leak it, rotate it immediately from the same page.
+- **Next.js 16** (App Router) + React 19 + TypeScript
+- **Neon Postgres** via Vercel Marketplace (serverless HTTP driver)
+- **Drizzle ORM** with generated `tsvector` column for search
+- **Tailwind v4** + **NES.css** + Press Start 2P / Nunito fonts
+- **@ai-sdk/anthropic** — Claude Haiku 4.5 via `generateText` + `Output.object`
+- **bcryptjs** for passphrase hashing, **marked + isomorphic-dompurify** for safe markdown
 
-> 💸 **Cost note:** Template Farm uses Claude Haiku 4.5, the cheapest Claude
-> model. A single recipe generation costs roughly **$0.0035** (about a third of
-> a cent). At 1,000 users generating 3 recipes/month each, you're looking at
-> ~$10/month total. New Anthropic accounts also get free trial credits.
+---
 
-## 2. Clone and install
+## Quick start
+
+### 1. Prerequisites
+
+- **Node.js 20+** (24 LTS recommended)
+- A **Neon** database (free tier is fine — easiest via `vercel link` + Vercel Marketplace, or sign up at <https://neon.tech>)
+- An **Anthropic API key** from <https://console.anthropic.com/> (starts with `sk-ant-...`)
+
+### 2. Install
 
 ```bash
 git clone <your-fork-url> template-farm
@@ -43,75 +53,106 @@ cd template-farm
 npm install
 ```
 
-## 3. Configure your environment
+### 3. Configure environment
 
-Copy the example env file and paste your key into it:
+Create `.env.local`:
+
+```
+DATABASE_URL=postgres://...        # Neon connection string
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### 4. Run migrations
 
 ```bash
-cp .env.local.example .env.local
+npm run db:push          # push schema to Neon
+# migrations in drizzle/ include a hand-written tsvector + GIN index
 ```
 
-Open `.env.local` in your editor and set:
-
-```
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-```
-
-`.env.local` is already in `.gitignore`, so it will not be committed.
-
-## 4. Run the dev server
+### 5. Dev server
 
 ```bash
 npm run dev
 ```
 
-Open <http://localhost:3000> in your browser. You should see the farm.
+Open <http://localhost:3000>. On first visit you'll be assigned a farm, shown
+your passphrase once (**write it down!**), and dropped at the search page.
 
-Type a project description into the text area (e.g. *"a REST API for tracking
-houseplants with a small web dashboard"*) and click **Plant seed 🌱**. After a
-few seconds you'll get back:
-
-- A template name and recommended stack
-- Shell commands to scaffold the project
-- Shell commands to install, build, and run it
-- A short rationale for why this stack fits
-
-## 5. Build for production
+### 6. Production
 
 ```bash
 npm run build
 npm run start
 ```
 
-This produces an optimized production build and serves it on port 3000.
+Or deploy to Vercel (`vercel deploy`) — the Marketplace can provision Neon for you.
 
 ---
 
-## How it works (very short tour)
+## Routes
 
-- `src/app/page.tsx` — landing page with NES.css pixel styling
-- `src/app/template-form.tsx` — client form + result card
-- `src/app/api/generate/route.ts` — server route that calls Claude Haiku via the
-  Vercel AI SDK using `generateText` + `Output.object` for structured output
-- `src/app/types.ts` — shared `Recipe` type
+### Pages
+- `/` — landing, search, AI toggle
+- `/h/[id]` — harvest detail (recipe, comments, snippets, refs, likes, fork)
+- `/me` — your dashboard (quota, passphrase, referral, spin wheel, your harvests)
+- `/u/[name]` — public profile
+- `/recover` — restore a farm from a passphrase
 
-The API route validates the model's response against a Zod schema, so the
-frontend always receives a well-formed `{ name, stack, scaffoldCommands,
-compileSteps, rationale }` object — or a clean error.
+### API
+- `POST /api/session/init` — idempotent session bootstrap
+- `POST /api/session/recover` — passphrase recovery (rate-limited)
+- `GET  /api/me` — current user + quota
+- `POST /api/me/spin` — spend a spin token
+- `POST /api/generate` — AI generation (checks quota, rolls back on failure)
+- `POST /api/search` — full-text search
+- `GET/POST /api/harvests` — list / create
+- `GET  /api/harvests/[id]` — single harvest with community content
+- `POST /api/harvests/[id]/{comments,snippets,refs,like,fork}`
+- `POST /api/referrals` — bind a referral code
+- `GET  /api/users/[name]` — public profile
 
-## Troubleshooting
+---
 
-**"Unauthenticated" / 401 errors**
-Your `ANTHROPIC_API_KEY` is missing, malformed, or revoked. Double-check
-`.env.local` and **restart `npm run dev`** after editing it (Next.js only loads
-env files at startup).
+## Project layout
 
-**500 error with no useful message**
-Open the terminal where `npm run dev` is running. The route logs the real
-error with `[generate] error: ...` just above the stack trace.
+```
+src/
+  app/
+    _components/        # landing shell, search, AI toggle, referral banner, session boot
+    api/                # all routes above
+    h/[id]/             # harvest detail page + its components
+    me/                  # dashboard + spin wheel, quota card, passphrase card
+    u/[name]/           # profile page
+    recover/            # passphrase recovery
+    layout.tsx, page.tsx, globals.css
+  db/
+    schema.ts           # 9 tables (users, harvests, comments, snippets, refs, likes, referrals, spin_results, ai_budget)
+    client.ts           # lazy getDb() — Neon HTTP driver
+  lib/
+    ai.ts               # generateRecipe()
+    quota.ts            # checkAndConsume() / restore() — dual-layer
+    harvests.ts         # create/get/list/search + onFirstPublicHarvest hook
+    community.ts        # comments, snippets, refs, likes, fork
+    referrals.ts        # bind + award
+    spin.ts             # prize table + rollSpin()
+    profiles.ts
+    session.ts          # getOrCreateUser, recoverByPassphrase
+    passphrase.ts       # generate, hash, verify
+    markdown.ts         # safe marked + dompurify
+    rate-limit.ts       # in-memory sliding window (dev)
+    errors.ts, logger.ts, types.ts
+  instrumentation.ts    # wires referral reward into first-public-harvest hook
+drizzle/
+  0000_*.sql            # schema
+  0001_search_tsv.sql   # generated tsvector + GIN index
+```
 
-**Model not found**
-You're probably on an old `@ai-sdk/anthropic` version. Run `npm i @ai-sdk/anthropic@latest`.
+## Security notes
+
+- Passphrases are bcrypt-hashed; `/recover` is rate-limited to 5/15min/IP to keep brute-force impractical.
+- Session cookies are HTTP-only, `SameSite=Lax`, 1-year expiry.
+- All user-generated markdown is sanitized server-side via marked + isomorphic-dompurify with a strict allowlist (no script/style/iframe, forced `target="_blank" rel="noopener nofollow"` on links).
+- AI calls are guarded by a per-user monthly quota *and* a global daily farm pool — both checked and consumed before the LLM call, and rolled back on failure.
 
 ## License
 

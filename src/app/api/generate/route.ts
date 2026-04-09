@@ -1,41 +1,98 @@
-import { generateText, Output } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
+import { getDb } from "@/db/client";
+import { harvests } from "@/db/schema";
+import { getOrCreateUser } from "@/lib/session";
+import { apiError, ERROR_CODES, describeError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
+import { checkAndConsume, restore } from "@/lib/quota";
+import { generateRecipe } from "@/lib/ai";
 
 export const maxDuration = 60;
 
-const recipeSchema = z.object({
-  name: z.string().describe("Short, friendly name for the template"),
-  stack: z.array(z.string()).describe("Languages, frameworks, and key libraries"),
-  scaffoldCommands: z
-    .array(z.string())
-    .describe("Shell commands the user runs to create the project from scratch"),
-  compileSteps: z
-    .array(z.string())
-    .describe("Shell commands to install deps, build, and run the project"),
-  rationale: z
-    .string()
-    .describe("1-3 sentences explaining why this stack fits the description"),
+const bodySchema = z.object({
+  description: z.string().min(10).max(2000),
 });
 
 export async function POST(req: Request) {
-  const { description } = (await req.json()) as { description?: string };
-  if (!description || typeof description !== "string") {
-    return Response.json({ error: "description required" }, { status: 400 });
+  let payload: unknown;
+  try {
+    payload = await req.json();
+  } catch {
+    return apiError(ERROR_CODES.BAD_REQUEST, "Invalid JSON body", 400);
+  }
+
+  const parsed = bodySchema.safeParse(payload);
+  if (!parsed.success) {
+    return apiError(
+      ERROR_CODES.BAD_REQUEST,
+      "description must be 10-2000 characters",
+      400,
+    );
+  }
+  const { description } = parsed.data;
+
+  const session = await getOrCreateUser();
+  const user = session.user;
+
+  const check = await checkAndConsume(user.id);
+  if (!check.allowed) {
+    if (check.reason === "user_quota") {
+      return apiError(
+        ERROR_CODES.QUOTA_EXHAUSTED,
+        "You've used all your AI prompts for this month.",
+        429,
+      );
+    }
+    return apiError(
+      ERROR_CODES.FARM_RESTING,
+      "The farm is resting — daily AI pool is exhausted. Try the community search.",
+      429,
+    );
+  }
+
+  let recipe;
+  try {
+    recipe = await generateRecipe(description);
+  } catch (err) {
+    logger.error("generate.route generation failed", {
+      err: describeError(err),
+      userId: user.id,
+    });
+    await restore(user.id);
+    return apiError(
+      ERROR_CODES.INTERNAL,
+      "AI generation failed. Please try again.",
+      500,
+    );
   }
 
   try {
-    const { output } = await generateText({
-      model: anthropic("claude-haiku-4-5"),
-      output: Output.object({ schema: recipeSchema }),
-      system:
-        "You are Template Farm, a friendly assistant that recommends a minimal, sensible project template for a developer's described project. Prefer popular, well-supported tools. Keep commands copy-pasteable for macOS/Linux. Be concise.",
-      prompt: `Project description:\n${description}\n\nReturn a single template recipe.`,
-    });
-    return Response.json(output);
+    const db = getDb();
+    const inserted = await db
+      .insert(harvests)
+      .values({
+        userId: user.id,
+        source: "ai",
+        description,
+        name: recipe.name,
+        stack: recipe.stack,
+        scaffoldCommands: recipe.scaffoldCommands,
+        compileSteps: recipe.compileSteps,
+        rationale: recipe.rationale,
+        // visibility defaults to "public" per schema — SPEC says AI is public-by-default.
+      })
+      .returning();
+    const harvest = inserted[0];
+    return Response.json(harvest);
   } catch (err) {
-    console.error("[generate] error:", err);
-    const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: message }, { status: 500 });
+    logger.error("generate.route harvest insert failed", {
+      err: describeError(err),
+      userId: user.id,
+    });
+    return apiError(
+      ERROR_CODES.INTERNAL,
+      "Failed to save generated harvest.",
+      500,
+    );
   }
 }

@@ -1,31 +1,102 @@
 @import "tailwindcss";
 
+:root {
+  --farm-sky: #f4d9a4;
+  --farm-grass: #6a9a4b;
+  --farm-grass-dark: #4e7938;
+  --farm-soil: #5b3a1e;
+  --farm-wheat: #fff5d6;
+  --farm-ember: #c45a2b;
+  --farm-ink: #2a1a0c;
+  --farm-muted: #8a6e4e;
+}
+
 html,
 body {
-  font-family: var(--font-pixel), system-ui, monospace;
-  font-size: 12px;
-  line-height: 1.7;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--farm-ink);
   background:
     repeating-linear-gradient(
       0deg,
-      #5fb56f 0 32px,
-      #56a865 32px 64px
-    );
-  color: #1a1a1a;
-  image-rendering: pixelated;
+      rgba(91, 58, 30, 0.05) 0 2px,
+      transparent 2px 48px
+    ),
+    linear-gradient(180deg, var(--farm-sky) 0%, #e9c98a 50%, var(--farm-grass) 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.nes-btn,
+.farm-title {
+  font-family: var(--font-pixel), system-ui, monospace;
 }
 
 .farm-title {
-  text-shadow: 3px 3px 0 #000;
-  color: #fff;
+  text-shadow: 3px 3px 0 var(--farm-soil), 6px 6px 0 rgba(0, 0, 0, 0.2);
+  color: var(--farm-wheat);
+  letter-spacing: 0.02em;
 }
 
 .nes-container.is-rounded {
-  background: #fffceb !important;
+  background-color: var(--farm-wheat) !important;
+  border-color: var(--farm-soil) !important;
+  color: var(--farm-ink);
+}
+
+.nes-container.is-rounded.is-dark {
+  background-color: var(--farm-soil) !important;
+  color: var(--farm-wheat);
+}
+
+.nes-btn.is-success {
+  background-color: var(--farm-grass) !important;
+  border-color: var(--farm-grass-dark) !important;
+  color: #fff !important;
+}
+
+.nes-btn.is-success:hover {
+  background-color: var(--farm-grass-dark) !important;
+}
+
+.nes-btn.is-warning {
+  background-color: var(--farm-ember) !important;
+  border-color: #8a3a18 !important;
+  color: #fff !important;
+}
+
+.nes-btn.is-warning:hover {
+  background-color: #a84923 !important;
+}
+
+.farm-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 2px 4px 2px 0;
+  background: var(--farm-grass);
+  color: #fff;
+  font-size: 11px;
+  border: 2px solid var(--farm-grass-dark);
+  border-radius: 4px;
+  font-family: var(--font-pixel), monospace;
+}
+
+.farm-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 pre.recipe {
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 11px;
+  font-size: 12px;
 }
